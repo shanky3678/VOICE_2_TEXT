@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File
+from fastapi import FastAPI, UploadFile, File, HTTPException
 from fastapi.responses import HTMLResponse, JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from faster_whisper import WhisperModel
@@ -13,12 +13,15 @@ model = WhisperModel("small", device="cpu")
 
 @app.post("/transcribe")
 async def transcribe(audio: UploadFile = File(...)):
-    tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
-    with tmp as f:
-        shutil.copyfileobj(audio.file, f)
-    segments, info = model.transcribe(tmp.name, beam_size=5)
-    text = " ".join(seg.text for seg in segments)
-    return {"text": text, "duration": info.duration}
+    try:
+        tmp = tempfile.NamedTemporaryFile(delete=False, suffix=".wav")
+        with tmp as f:
+            shutil.copyfileobj(audio.file, f)
+        segments, info = model.transcribe(tmp.name, beam_size=5)
+        text = " ".join(seg.text for seg in segments)
+        return JSONResponse(content={"text": text, "duration": info.duration}, status_code=201)
+    except Exception as e:
+        return HTTPException(status_code=500, detail=str(e))
 
 @app.get("/runme")
 def runme():
